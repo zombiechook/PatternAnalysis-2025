@@ -2,26 +2,20 @@ import numpy as np
 import nibabel as nib
 from tqdm import tqdm
 
-def to_channels(arr: np.ndarray, dtype=np.uint8) -> np.ndarray:
-    channels = np.unique(arr)
-    res = np.zeros(arr.shape + ( len(channels),), dtype=dtype)
-    for c in channels:
-        c = int(c)
-        res[..., c:c+1][arr == c] = 1
+import utils
 
-    return res
 
 def load_data_2D(imageNames, normImage=False, categorical=False, dtype=np.float32, getAffines=False, early_stop=False):
-    '''
-    Load medical image data from names , cases list provided into a list for each .
+    """
+    Load medical image data from names , cases list provided into a list for each.
 
-    This function pre - allocates 4 D arrays for conv2d to avoid excessive memory ↘
-    usage .
+    This function pre - allocates 4 D arrays for conv2d to avoid excessive memory
+        usage.
 
     normImage : bool ( normalise the image 0.0 -1.0)
-    early_stop : Stop loading pre - maturely , leaves arrays mostly empty , for quick ↘
-    loading and testing scripts .
-    '''
+    early_stop : Stop loading pre - maturely , leaves arrays mostly empty , for quick
+        loading and testing scripts.
+    """
     affines = []
 
     #get fixed size
@@ -30,7 +24,7 @@ def load_data_2D(imageNames, normImage=False, categorical=False, dtype=np.float3
     if len(first_case.shape) == 3:
         first_case = first_case[:, :, 0]
     if categorical:
-        first_case = to_channels(first_case, dtype=dtype)
+        first_case = utils.to_channels(first_case, dtype=dtype)
         rows, cols, channels = first_case.shape
         images = np.zeros((num, rows, cols, channels), dtype=dtype)
     else:
@@ -47,7 +41,7 @@ def load_data_2D(imageNames, normImage=False, categorical=False, dtype=np.float3
         if normImage:
             inImage = (inImage - inImage.mean()) / inImage.std()
         if categorical:
-            inImage = to_channels(inImage, dtype=dtype)
+            inImage = utils.to_channels(inImage, dtype=dtype)
             images[i, :, :, :] = inImage
         else:
             images[i, :, :] = inImage
