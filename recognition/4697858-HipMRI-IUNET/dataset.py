@@ -225,3 +225,86 @@ def get_dataloaders(data_dir: str,
     )
 
     return train_loader, val_loader, test_loader
+
+
+if __name__ == "__main__":
+    data_directory = "./data"
+
+    print("Verifying dataset structure...")
+
+    expected_dirs = [
+        "keras_slices_train",
+        "keras_slices_seg_train",
+        "keras_slices_validate",
+        "keras_slices_seg_validate",
+        "keras_slices_test",
+        "keras_slices_seg_test"
+    ]
+
+    for dir_name in expected_dirs:
+        dir_path = os.path.join(data_directory, dir_name)
+        exists = os.path.exists(dir_path)
+        status = "OK" if exists else "ERR"
+        print(f"{dir_path}: {status}")
+
+    try:
+        train_images, train_masks = get_file_paths_from_directory(
+            data_directory, "keras_slices_train", "keras_slices_seg_train"
+        )
+
+        if len(train_images) == 0:
+            print("ERROR: No training images found!")
+
+        print(f"\nLoading 3 sample images...")
+        for i in range(3):
+            img = load_nifti_slice(train_images[i], normalize=True)
+            mask = load_nifti_slice(train_masks[i], normalize=False)
+
+            unique_labels = np.unique(mask)
+            print(f"\nSample {i + 1}:")
+            print(f"Image shape: {img.shape}, dtype: {img.dtype}")
+            print(f"Image range: [{img.min():.3f}, {img.max():.3f}]")
+            print(f"Mask shape: {mask.shape}, dtype: {mask.dtype}")
+            print(f"Unique labels: {unique_labels}")
+            print(f"Prostate pixels: {np.sum(mask == 1)}")
+
+        print("Dataset verification completed.")
+    except Exception as e:
+        print(f"\nDataset verification ERROR: {e}")
+
+    print("\nCreating DataLoaders...")
+    try:
+        train_loader, val_loader, test_loader = get_dataloaders(
+            data_dir=data_directory,
+            batch_size=8,
+            num_workers=2,
+            normalize=True
+        )
+
+        print("\nTesting batch loading...")
+
+        images, masks = next(iter(train_loader))
+        print(f"\nBatch loaded")
+        print(f"Images shape: {images.shape} (batch, channels, height, width)")
+        print(f"Masks shape: {masks.shape} (batch, height, width)")
+        print(f"Image range: [{images.min():.3f}, {images.max():.3f}]")
+        print(f"Unique mask values: {torch.unique(masks).tolist()}")
+        print(f"Image dtype: {images.dtype}")
+        print(f"Mask dtype: {masks.dtype}")
+
+        for label in torch.unique(masks):
+            count = (masks == label).sum().item()
+            percentage = 100.0 * count / masks.numel()
+            print(f"Class {label}: {count} pixels ({percentage:.2f}%)")
+
+        print("Dataset module tests complete.")
+
+        print("\nSUMMARY")
+        print(f"Training batches: {len(train_loader)}")
+        print(f"Validation batches: {len(val_loader)}")
+        print(f"Test batches: {len(test_loader)}")
+        print(f"Total train samples: {len(train_loader.dataset)}")
+        print(f"Total val samples: {len(val_loader.dataset)}")
+        print(f"Total test samples: {len(test_loader.dataset)}")
+    except Exception as e:
+        print(f"\nDataLoader ERROR: {e}")
