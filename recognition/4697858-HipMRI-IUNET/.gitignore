@@ -1,1 +1,6 @@
-../../.idea/
+.idea/
+*.nii
+*.npy
+*.pth
+data/
+checkpoints/
