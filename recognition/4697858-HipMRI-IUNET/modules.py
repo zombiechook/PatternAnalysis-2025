@@ -104,7 +104,7 @@ class IUNet2D(nn.Module):
 
         aux_log = []
         for i in range(len(self.ups)):
-            up = self.ups[i]
+            up = self.ups[i](x)
             skip = skips[-(i+2)]
             if up.shape[-2:] != skip[-2:]:
                 up = F.interpolate(up, size=skip.shape[-2:], mode="bilinear", align_corners=False)
@@ -162,7 +162,7 @@ class DiceLoss(nn.Module):
 
         dice = (2.0 * intersection + self.smoothing) / (union + self.smoothing)
 
-        dice_loss = 1.0 - dice
+        dice_loss = 1.0 - dice.mean()
 
         return dice_loss
 
@@ -183,3 +183,39 @@ def dice_coefficient(predictor: torch.Tensor, target: torch.Tensor, smoothing: f
     dice = (2.0 * intersection + smoothing) / (union + smoothing)
 
     return dice
+
+
+if __name__ == "__main__":
+    print("Testing Improved 2D UNet architecture...")
+
+    model = IUNet2D(in_channels=1, out_channels=2, base_channel=32, depth=4, deep_supervision=False)
+
+    x = torch.randn(2, 1, 256, 256)
+
+    output = model(x)
+    print(f"Input Shape: {x.shape}")
+    print(f"Output Shape: {output.shape}")
+    print(f"Model Parameters: {sum(p.numel() for p in model.parameters()):,}")
+
+    print("\nTesting Deep Supervision...")
+    model_ds = IUNet2D(in_channels=1, out_channels=2, base_channel=32, depth=4, deep_supervision=True)
+    outputs = model_ds(x)
+    print(f"Number of outputs: {len(outputs)}")
+    for i, out in enumerate(outputs):
+        print(f"Output {i} shape: {out.shape}")
+
+    print("\nTesting Loss...")
+    target = torch.randint(0, 2, (2, 256, 256))
+
+    dice_loss = DiceLoss()
+
+    loss_dice = dice_loss(output, target)
+
+    print(f"Dice Loss: {loss_dice.item():.4f}")
+
+    print("\nTesting metrics...")
+    dice_scores = dice_coefficient(output, target)
+
+    print(f"Dice Coefficients per Class: {dice_scores}")
+
+    print("\nAll Tests Completed.")
