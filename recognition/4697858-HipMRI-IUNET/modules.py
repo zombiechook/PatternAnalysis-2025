@@ -135,3 +135,51 @@ def kaiming_initialization(module: nn.Module):
                 nn.init.ones_(m.weight)
             if m.bias is not None:
                 nn.init.zeros_(m.bias)
+
+class DiceLoss(nn.Module):
+    def __init__(self, smoothing: float=1.0, ignore_idx: int=-100):
+        super().__init__()
+        self.smoothing = smoothing
+        self.ignore_idx = ignore_idx
+
+    def forward(self, predictor: torch.Tensor, target: torch.Tensor):
+        if predictor.shape[1] > 1:
+            predictor = F.softmax(predictor, dim=1)
+        else:
+            predictor = torch.sigmoid(predictor)
+
+        num_classes = predictor.shape[1]
+        target_one_hot = F.one_hot(target.long(), num_classes=num_classes)
+        target_one_hot = target_one_hot.permute(0, 3, 1, 2).float()
+
+        if self.ignore_idx >= 0:
+            mask = (target != self.ignore_idx).float().unsqueeze(1)
+            predictor = predictor * mask
+            target_one_hot = target_one_hot * mask
+
+        intersection = (predictor * target_one_hot).sum(dim=(2, 3))
+        union = predictor.sum(dim=(2, 3)) + target_one_hot.sum(dim=(2, 3))
+
+        dice = (2.0 * intersection + self.smoothing) / (union + self.smoothing)
+
+        dice_loss = 1.0 - dice
+
+        return dice_loss
+
+def dice_coefficient(predictor: torch.Tensor, target: torch.Tensor, smoothing: float=1e-6, threshold: float=0.5):
+    if predictor.shape[1] > 1:
+        predictor = torch.softmax(predictor, dim=1)
+        predictor = torch.argmax(predictor, dim=1)  # (B, H, W)
+    else:
+        predictor = (torch.sigmoid(predictor) > threshold).float().squeeze(1)
+
+    num_classes = target.max().item() + 1
+    predictor_one_hot = F.one_hot(predictor.long(), num_classes=num_classes).permute(0, 3, 1, 2).float()
+    target_one_hot = F.one_hot(target.long(), num_classes=num_classes).permute(0, 3, 1, 2).float()
+
+    intersection = (predictor_one_hot * target_one_hot).sum(dim=(0, 2, 3))
+    union = predictor_one_hot.sum(dim=(0, 2, 3)) + target_one_hot.sum(dim=(0, 2, 3))
+
+    dice = (2.0 * intersection + smoothing) / (union + smoothing)
+
+    return dice
