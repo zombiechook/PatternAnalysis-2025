@@ -1,9 +1,9 @@
 import argparse
 import os
-
 import torch
 import torch.cuda
 import torch.optim as optim
+import utils
 from dataset import get_dataloaders
 from modules import IUNet2D, DiceLoss, dice_coefficient
 from tqdm import tqdm
@@ -70,7 +70,7 @@ def train_one_epoch(model, loader, optimiser, criterion, device):
     return average_loss
 
 
-def validate(model, loader, criterion, device, num_classes):
+def validate(model, loader, criterion, device):
     model.eval()
     total_loss = 0.0
     num_batches = 0
@@ -152,7 +152,7 @@ def main():
 
         train_loss = train_one_epoch(model, train_loader, optimiser, criterion, device)
 
-        val_loss, val_dice = validate(model, val_loader, criterion, device, args.num_classes)
+        val_loss, val_dice = validate(model, val_loader, criterion, device)
 
         with torch.no_grad():
             model.eval()
@@ -182,6 +182,8 @@ def main():
         if early_stop(val_dice[args.target_label]):
             print(f"\nConvergence detected after {epoch+1} epochs")
             break
+
+    utils.plot_curves(train_losses, val_losses, train_dices, val_dices, os.path.join(args.output, 'training_curves.png'))
 
 
 if __name__ == "__main__":
