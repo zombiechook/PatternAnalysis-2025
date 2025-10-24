@@ -10,6 +10,38 @@ from tqdm import tqdm
 import numpy as np
 
 
+class EarlyStop:
+    def __init__(self, patience=10, min_change=0.001, mode='max'):
+        self.patience = patience
+        self.min_change = min_change
+        self.mode = mode
+        self.counter = 0
+        self.best = None
+        self.stop = False
+
+    def __call__(self, metric):
+        if self.best is None:
+            return False
+
+        if self.mode == 'max':
+            if metric > self.best + self.min_change:
+                self.best = metric
+                self.counter = 0
+            else:
+                self.counter += 1
+        else:
+            if metric < self.best - self.min_change:
+                self.best = metric
+                self.counter = 0
+            else:
+                self.counter += 1
+
+        if self.counter >= self.patience:
+            self.stop = True
+
+        return self.stop
+
+
 def train_one_epoch(model, loader, optimiser, criterion, device):
     model.train()
     total_loss = 0.0
@@ -82,6 +114,7 @@ def parse_cmd_args():
     args.add_argument("--output", type=str, default="./output")
     args.add_argument("--learning_rate", type=float, default=1e-4)
     args.add_argument("--weight_decay", type=float, default=1e-5)
+    args.add_argument("--patience", type=int, default=10)
 
     return args.parse_args()
 
@@ -98,6 +131,8 @@ def main():
             normalize=True)
 
     model = IUNet2D(in_channels=1, out_channels=args.num_classes, base_channel=32, depth=4, deep_supervision=args.deep_supervision).to(device)
+
+    early_stop = EarlyStop(patience=args.patience, mode='max')
 
     criterion = DiceLoss(args.smooth)
 
@@ -143,6 +178,10 @@ def main():
             torch.save(model.state_dict(), os.path.join(args.output, 'best_model.pth'))
             print("Saved new best model")
             print(f"Dice: {best_dice:.4f}")
+
+        if early_stop(val_dice[args.target_label]):
+            print(f"\nConvergence detected after {epoch+1} epochs")
+            break
 
 
 if __name__ == "__main__":
