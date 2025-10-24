@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class ConvBlock(nn.Module):
     def __init__(self, in_channel: int, out_channel: int, p_drop: float=0.0):
         super().__init__()
@@ -136,6 +137,7 @@ def kaiming_initialization(module: nn.Module):
             if m.bias is not None:
                 nn.init.zeros_(m.bias)
 
+
 class DiceLoss(nn.Module):
     def __init__(self, smoothing: float=1.0, ignore_idx: int=-100):
         super().__init__()
@@ -166,6 +168,7 @@ class DiceLoss(nn.Module):
 
         return dice_loss
 
+
 def dice_coefficient(predictor: torch.Tensor, target: torch.Tensor, smoothing: float=1e-6, threshold: float=0.5):
     if predictor.shape[1] > 1:
         predictor = torch.softmax(predictor, dim=1)
@@ -188,7 +191,7 @@ def dice_coefficient(predictor: torch.Tensor, target: torch.Tensor, smoothing: f
 if __name__ == "__main__":
     print("Testing Improved 2D UNet architecture...")
 
-    model = IUNet2D(in_channels=1, out_channels=2, base_channel=32, depth=4, deep_supervision=False)
+    model = IUNet2D(in_channels=1, out_channels=3, base_channel=32, depth=4, deep_supervision=False)
 
     x = torch.randn(2, 1, 256, 256)
 

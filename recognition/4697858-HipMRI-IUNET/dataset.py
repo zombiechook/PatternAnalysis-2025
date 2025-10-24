@@ -69,13 +69,19 @@ def load_data_batch(file_paths: list, normalize: bool = True, dtype=np.float32) 
 
 class HipMRIDataset(Dataset):
 
-    def __init__(self, image_paths: list, mask_paths: list, transform='val', normalize: bool = True):
+    def __init__(self,
+                 image_paths: list,
+                 mask_paths: list,
+                 transform='val',
+                 normalize: bool = True,
+                 target_size: tuple = (256, 256)):
         assert len(image_paths) == len(mask_paths), "Number of images and masks must match"
 
         self.image_paths = sorted(image_paths)
         self.mask_paths = sorted(mask_paths)
         self.transform = transform
         self.normalize = normalize
+        self.target_size = target_size
 
         print(f"Dataset created with {len(self.image_paths)} samples")
 
@@ -86,6 +92,10 @@ class HipMRIDataset(Dataset):
         # Convert to torch tensors first
         image = torch.from_numpy(image).float().unsqueeze(0)  # (1, H, W)
         mask = torch.from_numpy(mask).long()  # (H, W)
+
+        if self.target_size is not None:
+            image = Functional.resize(image, list(self.target_size), interpolation=Functional.InterpolationMode.BILINEAR)
+            mask = Functional.resize(mask.unsqueeze(0), list(self.target_size), interpolation=Functional.InterpolationMode.NEAREST).squeeze(0)
 
         if self.transform == 'train':
             # Random horizontal flip
