@@ -42,6 +42,27 @@ class EarlyStop:
         return self.stop
 
 
+def save_checkpoint(model, optimiser, epoch, best_dice, filepath):
+    checkpoint = {
+        "epoch": epoch,
+        "model_state": model.state_dict(),
+        "optimiser_state": optimiser.state_dict(),
+        "best_dice": best_dice,
+    }
+    torch.save(checkpoint, filepath)
+    print(f"Checkpoint saved to {filepath}")
+
+
+def load_checkpoint(model, optimiser, filepath):
+    checkpoint = torch.load(filepath)
+    model.load_state_dict(checkpoint["model_state"])
+    optimiser.load_state_dict(checkpoint["optimiser_state"])
+    epoch = checkpoint["epoch"]
+    best_dice = checkpoint["best_dice"]
+    print(f"Checkpoint loaded from {filepath}")
+    return epoch, best_dice
+
+
 def train_one_epoch(model, loader, optimiser, criterion, device):
     model.train()
     total_loss = 0.0
@@ -115,6 +136,9 @@ def parse_cmd_args():
     args.add_argument("--learning_rate", type=float, default=1e-4)
     args.add_argument("--weight_decay", type=float, default=1e-5)
     args.add_argument("--patience", type=int, default=10)
+    args.add_argument("--resume", action="store_true")
+    args.add_argument("--save_frequency", type=int, default=10)
+    args.add_argument("--resume_checkpoint", type=str, default=None)
 
     return args.parse_args()
 
@@ -147,6 +171,10 @@ def main():
     best_dice = 0.0
 
     start_epoch = 0
+    if args.resume:
+        start_epoch, best_dice = load_checkpoint(model, optimiser, args.resume_checkpoint)
+        start_epoch += 1
+
     for epoch in range(start_epoch, args.epochs):
         print(f"Epoch {epoch+1}/{args.epochs}")
 
@@ -182,6 +210,9 @@ def main():
         if early_stop(val_dice[args.target_label]):
             print(f"\nConvergence detected after {epoch+1} epochs")
             break
+
+        if (epoch + 1) % args.save_frequency == 0:
+            save_checkpoint(model, optimiser, epoch, best_dice, os.path.join(args.output, f"checkpoint_epoch_{epoch+1}.pth"))
 
     utils.plot_curves(train_losses, val_losses, train_dices, val_dices, os.path.join(args.output, 'training_curves.png'))
 
