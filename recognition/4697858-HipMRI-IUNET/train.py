@@ -54,7 +54,7 @@ def save_checkpoint(model, optimiser, epoch, best_dice, filepath):
 
 
 def load_checkpoint(model, optimiser, filepath):
-    checkpoint = torch.load(filepath)
+    checkpoint = torch.load(filepath, weights_only=False)
     model.load_state_dict(checkpoint["model_state"])
     optimiser.load_state_dict(checkpoint["optimiser_state"])
     epoch = checkpoint["epoch"]
@@ -91,11 +91,13 @@ def train_one_epoch(model, loader, optimiser, criterion, device):
     return average_loss
 
 
-def validate(model, loader, criterion, device):
+def validate(model, loader, criterion, device, num_classes):
     model.eval()
     total_loss = 0.0
     num_batches = 0
-    all_dice = []
+
+    dice_sum = np.zeros(num_classes, dtype=np.float32)
+    dice_count = np.zeros(num_classes, dtype=np.float32)
 
     with torch.no_grad():
         progress_bar = tqdm(loader, desc='Validation', leave=False)
@@ -111,20 +113,27 @@ def validate(model, loader, criterion, device):
             num_batches += 1
 
             dice = dice_coefficient(outputs, masks)
-            all_dice.append(dice.cpu().numpy())
+
+            for i in range(min(len(dice), num_classes)):
+                dice_sum[i] += dice[i].item()
+                dice_count[i] += 1
 
             progress_bar.set_postfix({"loss": f"{loss.item():.4f}"})
 
     average_loss = total_loss / num_batches
-    average_dice = np.mean(all_dice, axis=0)
+    average_dice = np.zeros(num_classes, dtype=np.float32)
+
+    for i in range(num_classes):
+        if dice_count[i] > 0:
+            average_dice[i] = dice_sum[i] / dice_count[i]
 
     return average_loss, average_dice
 
 
 def parse_cmd_args():
     args = argparse.ArgumentParser(description="Train 2D Improved UNet")
-    args.add_argument("--directory", type=str, default="./data")
-    args.add_argument("--batch_size", type=int, default=8)
+    args.add_argument("--directory", type=str, default="/home/groups/comp3710/HipMRI_Study_open/keras_slices_data")
+    args.add_argument("--batch_size", type=int, default=16)
     args.add_argument("--num_workers", type=int, default=4)
     args.add_argument("--target_label", type=int, default=1)
     args.add_argument("--epochs", type=int, default=100)
@@ -147,7 +156,6 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     args = parse_cmd_args()
-
     train_loader, val_loader, test_loader = get_dataloaders(
             data_dir=args.directory,
             batch_size=args.batch_size,
@@ -173,6 +181,7 @@ def main():
     start_epoch = 0
     if args.resume:
         start_epoch, best_dice = load_checkpoint(model, optimiser, args.resume_checkpoint)
+        print(best_dice)
         start_epoch += 1
 
     for epoch in range(start_epoch, args.epochs):
@@ -180,19 +189,28 @@ def main():
 
         train_loss = train_one_epoch(model, train_loader, optimiser, criterion, device)
 
-        val_loss, val_dice = validate(model, val_loader, criterion, device)
+        val_loss, val_dice = validate(model, val_loader, criterion, device, args.num_classes)
 
         with torch.no_grad():
             model.eval()
-            train_dice_batch = []
+            train_dice_sum = np.zeros(args.num_classes, dtype=np.float32)
+            train_dice_count = np.zeros(args.num_classes, dtype=np.float32)
+
             for i, (images, masks) in enumerate(train_loader):
                 if i >= 10:
                     break
                 images, masks = images.to(device), masks.to(device)
                 outputs = model(images)
                 dice = dice_coefficient(outputs, masks)
-                train_dice_batch.append(dice.cpu().numpy())
-            train_dice = np.mean(train_dice_batch, axis=0)
+
+                for j in range(min(len(dice), args.num_classes)):
+                    train_dice_sum[j] += dice[j].item()
+                    train_dice_count[j] += 1
+
+            train_dice = np.zeros(args.num_classes, dtype=np.float32)
+            for j in range(args.num_classes):
+                if train_dice_count[j] > 0:
+                    train_dice[j] = train_dice_sum[j] / train_dice_count[j]
 
         train_losses.append(train_loss)
         val_losses.append(val_loss)
@@ -214,6 +232,7 @@ def main():
         if (epoch + 1) % args.save_frequency == 0:
             save_checkpoint(model, optimiser, epoch, best_dice, os.path.join(args.output, f"checkpoint_epoch_{epoch+1}.pth"))
 
+    print(train_losses, val_losses, train_dices, val_dices)
     utils.plot_curves(train_losses, val_losses, train_dices, val_dices, os.path.join(args.output, 'training_curves.png'))
 
 

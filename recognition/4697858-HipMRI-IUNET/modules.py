@@ -169,14 +169,14 @@ class DiceLoss(nn.Module):
         return dice_loss
 
 
-def dice_coefficient(predictor: torch.Tensor, target: torch.Tensor, smoothing: float=1e-6, threshold: float=0.5):
+def dice_coefficient(predictor: torch.Tensor, target: torch.Tensor, smoothing: float = 1e-6, threshold: float = 0.5):
     if predictor.shape[1] > 1:
         predictor = torch.softmax(predictor, dim=1)
         predictor = torch.argmax(predictor, dim=1)  # (B, H, W)
     else:
         predictor = (torch.sigmoid(predictor) > threshold).float().squeeze(1)
 
-    num_classes = target.max().item() + 1
+    num_classes = max(target.max().item(), predictor.max().item()) + 1
     predictor_one_hot = F.one_hot(predictor.long(), num_classes=num_classes).permute(0, 3, 1, 2).float()
     target_one_hot = F.one_hot(target.long(), num_classes=num_classes).permute(0, 3, 1, 2).float()
 

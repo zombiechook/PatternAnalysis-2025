@@ -112,7 +112,7 @@ class HipMRIDataset(Dataset):
             if random.random() > 0.5:
                 angle = random.uniform(-15, 15)
                 image = Functional.rotate(image, angle, fill=0)
-                mask = Functional.rotate(mask.unsqueeze(0), angle, fill=0).squeeze(0)
+                mask = Functional.rotate(mask.unsqueeze(0), angle, fill=0, interpolation=Functional.InterpolationMode.NEAREST).squeeze(0)
 
             # Random brightness and contrast adjustment (image only)
             if random.random() > 0.5:
@@ -173,8 +173,6 @@ def get_dataloaders(data_dir: str,
                     batch_size: int = 16,
                     num_workers: int = 4,
                     normalize: bool = True) -> tuple:
-    print(f"\nLoading data from: {data_dir}")
-    print("=" * 60)
 
     # Get file paths for each split
     train_images, train_masks = get_file_paths_from_directory(
@@ -186,12 +184,6 @@ def get_dataloaders(data_dir: str,
     test_images, test_masks = get_file_paths_from_directory(
         data_dir, "keras_slices_test", "keras_slices_seg_test"
     )
-
-    print("\nDataset sizes:")
-    print(f"  Train:      {len(train_images)} slices")
-    print(f"  Validation: {len(val_images)} slices")
-    print(f"  Test:       {len(test_images)} slices")
-    print("=" * 60)
 
     # Create datasets with appropriate transforms
     train_dataset = HipMRIDataset(
