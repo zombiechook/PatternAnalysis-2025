@@ -11,6 +11,14 @@ import numpy as np
 
 
 class EarlyStop:
+    """
+    Detect when a training or validation metrics stop improving and stop the process early
+
+    Args:
+        patience: The number of iterations to wait for a significant change
+        min_change: The degree of difference in the metric to consider a change significant
+        mode: Whether the process is aiming for maximising or minimising the metric
+    """
     def __init__(self, patience=10, min_change=0.001, mode='max'):
         self.patience = patience
         self.min_change = min_change
@@ -43,6 +51,20 @@ class EarlyStop:
 
 
 def save_checkpoint(model, optimiser, epoch, best_dice, train_losses, val_losses, train_dices, val_dices, filepath):
+    """
+    Saves the current state in a checkpoint
+
+    Args:
+        model: Model to save
+        optimiser: Optimiser to save
+        epoch: The training epoch just completed
+        best_dice: The best dice coefficient achieved so far
+        train_losses: The training losses for each epoch
+        val_losses: The validation losses for each epoch
+        train_dices: The training dice coefficients for each epoch
+        val_dices: The validation dice coefficients for each epoch
+        filepath: The path where the checkpoint will be saved to
+    """
     checkpoint = {
         "epoch": epoch,
         "model_state": model.state_dict(),
@@ -58,6 +80,14 @@ def save_checkpoint(model, optimiser, epoch, best_dice, train_losses, val_losses
 
 
 def load_checkpoint(model, optimiser, filepath):
+    """
+    Loads a saved checkpoint
+
+    Args:
+        model: The model to load into
+        optimiser: The optimiser to load into
+        filepath: The path to the checkpoint
+    """
     checkpoint = torch.load(filepath, weights_only=False)
     model.load_state_dict(checkpoint["model_state"])
     optimiser.load_state_dict(checkpoint["optimiser_state"])
@@ -72,6 +102,16 @@ def load_checkpoint(model, optimiser, filepath):
 
 
 def train_one_epoch(model, loader, optimiser, criterion, device):
+    """
+    Trains a single epoch
+
+    Args:
+        model: The model to train
+        loader: Training data loader
+        optimiser: Optimiser
+        criterion: Loss function
+        device: Device to train on
+    """
     model.train()
     total_loss = 0.0
     num_batches = 0
@@ -100,6 +140,16 @@ def train_one_epoch(model, loader, optimiser, criterion, device):
 
 
 def validate(model, loader, criterion, device, num_classes):
+    """
+    Validates a single epoch
+
+    Args:
+        model: The model to validate
+        loader: Validation data loader
+        criterion: Loss function
+        device: Device to validate on
+        num_classes: The number of classes in the dataset
+    """
     model.eval()
     total_loss = 0.0
     num_batches = 0
@@ -122,6 +172,7 @@ def validate(model, loader, criterion, device, num_classes):
 
             dice = dice_coefficient(outputs, masks)
 
+            # Aggregate dice coefficients, accounting for differing numbers of classes
             for i in range(min(len(dice), num_classes)):
                 dice_sum[i] += dice[i].item()
                 dice_count[i] += 1
@@ -131,6 +182,7 @@ def validate(model, loader, criterion, device, num_classes):
     average_loss = total_loss / num_batches
     average_dice = np.zeros(num_classes, dtype=np.float32)
 
+    # Average the dice coefficients, accounting for differing numbers of classes
     for i in range(num_classes):
         if dice_count[i] > 0:
             average_dice[i] = dice_sum[i] / dice_count[i]
@@ -139,13 +191,15 @@ def validate(model, loader, criterion, device, num_classes):
 
 
 def parse_cmd_args():
+    """
+    Parses command line arguments
+    """
     args = argparse.ArgumentParser(description="Train 2D Improved UNet")
     args.add_argument("--directory", type=str, default="/home/groups/comp3710/HipMRI_Study_open/keras_slices_data")
     args.add_argument("--batch_size", type=int, default=16)
     args.add_argument("--num_workers", type=int, default=4)
     args.add_argument("--target_label", type=int, default=1)
     args.add_argument("--epochs", type=int, default=100)
-    args.add_argument("--deep_supervision", action='store_true')
     args.add_argument("--dice_weight", type=float, default=0.5)
     args.add_argument("--smooth", type=float, default=1.0)
     args.add_argument("--num_classes", type=int, default=6)
@@ -161,6 +215,9 @@ def parse_cmd_args():
 
 
 def main():
+    """
+    Main training function
+    """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     args = parse_cmd_args()
@@ -170,7 +227,7 @@ def main():
             num_workers=args.num_workers if torch.cuda.is_available() else 0,
             normalize=True)
 
-    model = IUNet2D(in_channels=1, out_channels=args.num_classes, base_channel=32, depth=4, deep_supervision=args.deep_supervision).to(device)
+    model = IUNet2D(in_channels=1, out_channels=args.num_classes, base_channel=32, depth=4).to(device)
 
     early_stop = EarlyStop(patience=args.patience, mode='max')
 
@@ -187,6 +244,7 @@ def main():
     best_dice = 0.0
 
     start_epoch = 0
+    # Load from a checkpoint if in resume mode
     if args.resume:
         start_epoch, best_dice, train_losses, val_losses, train_dices, val_dices = load_checkpoint(model, optimiser, args.resume_checkpoint)
         print(best_dice)
@@ -216,10 +274,12 @@ def main():
                     train_dice_count[j] += 1
 
             train_dice = np.zeros(args.num_classes, dtype=np.float32)
+            # Calculate the average dice coefficient, accounting for potential differing number of classes
             for j in range(args.num_classes):
                 if train_dice_count[j] > 0:
                     train_dice[j] = train_dice_sum[j] / train_dice_count[j]
 
+        # Add losses and dice coefficients for the completed epoch
         train_losses.append(train_loss)
         val_losses.append(val_loss)
         train_dices.append(train_dice[args.target_label])
@@ -227,6 +287,7 @@ def main():
 
         scheduler.step(val_dice[args.target_label])
 
+        # Update best dice score
         if val_dice[args.target_label] > best_dice:
             best_dice = val_dice[args.target_label]
             torch.save(model.state_dict(), os.path.join(args.output, 'best_model.pth'))
@@ -240,6 +301,7 @@ def main():
         if (epoch + 1) % args.save_frequency == 0:
             save_checkpoint(model, optimiser, epoch, best_dice, train_losses, val_losses, train_dices, val_dices, os.path.join(args.output, f"checkpoint_epoch_{epoch+1}.pth"))
 
+    # Produce a plot of the losses and dice coefficients across all epochs
     utils.plot_curves(train_losses, val_losses, train_dices, val_dices, os.path.join(args.output, 'training_curves.png'))
 
 

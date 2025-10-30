@@ -10,6 +10,9 @@ import random
 
 
 def to_channels(arr: np.ndarray, dtype=np.uint8) -> np.ndarray:
+    """
+    Convert mask to one-hot encoded channels
+    """
     channels = np.unique(arr)
     res = np.zeros(arr.shape + (len(channels),), dtype=dtype)
     for c in channels:
@@ -19,6 +22,14 @@ def to_channels(arr: np.ndarray, dtype=np.uint8) -> np.ndarray:
 
 
 def load_nifti_slice(filepath: str, normalize: bool = True, dtype=np.float32) -> np.ndarray:
+    """
+    Load a single NIfTI slice
+
+    Args:
+        filepath: Path to .nii.gz file
+        normalize: Whether to apply normalisation
+        dtype: Output datatype
+    """
     nifti_image = nib.load(filepath)
     image = nifti_image.get_fdata(caching='unchanged')  # Read from disk only
 
@@ -68,7 +79,16 @@ def load_data_batch(file_paths: list, normalize: bool = True, dtype=np.float32) 
 
 
 class HipMRIDataset(Dataset):
+    """
+    Loads data for Hip MRI Prostate Dataset
 
+    Args:
+        image_paths: List of paths to NIfTI images
+        mask_paths: List of paths to NIfTI masks
+        transform: Transform node
+        normalize: Whether to apply normalisation
+        target_size: Expected size of image
+    """
     def __init__(self,
                  image_paths: list,
                  mask_paths: list,
@@ -93,6 +113,7 @@ class HipMRIDataset(Dataset):
         image = torch.from_numpy(image).float().unsqueeze(0)  # (1, H, W)
         mask = torch.from_numpy(mask).long()  # (H, W)
 
+        # Resize images and masks to meet expected size
         if self.target_size is not None:
             image = Functional.resize(image, list(self.target_size), interpolation=Functional.InterpolationMode.BILINEAR)
             mask = Functional.resize(mask.unsqueeze(0), list(self.target_size), interpolation=Functional.InterpolationMode.NEAREST).squeeze(0)
@@ -123,7 +144,7 @@ class HipMRIDataset(Dataset):
                 contrast_factor = random.uniform(0.8, 1.2)
                 image = Functional.adjust_contrast(image, contrast_factor)
 
-            # Add Gaussian noise (image only)
+            # Add Gaussian noise to image
             if random.random() > 0.3:
                 noise = torch.randn_like(image) * 0.1
                 image = image + noise
@@ -152,6 +173,14 @@ class HipMRIDataset(Dataset):
 
 
 def get_file_paths_from_directory(data_dir: str, image_folder: str, mask_folder: str) -> tuple:
+    """
+    Loads all file paths from the data directory
+
+    Args:
+        data_dir: Base directory for data
+        image_folder: Folder where NIfTI images are stored
+        mask_folder: Folder where NIfTI masks are stored
+    """
     image_dir = os.path.join(data_dir, image_folder)
     mask_dir = os.path.join(data_dir, mask_folder)
 
@@ -173,6 +202,15 @@ def get_dataloaders(data_dir: str,
                     batch_size: int = 16,
                     num_workers: int = 4,
                     normalize: bool = True) -> tuple:
+    """
+    Create dataloaders for training, validation, and testing
+
+    Args:
+        data_dir: Root folder for data
+        batch_size: Batch size for training
+        num_workers: Number of parallel workers
+        normalize: Whether to apply normalisation
+    """
 
     # Get file paths for each split
     train_images, train_masks = get_file_paths_from_directory(
