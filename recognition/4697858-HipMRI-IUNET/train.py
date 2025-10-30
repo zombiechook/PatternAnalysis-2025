@@ -29,7 +29,7 @@ class EarlyStop:
 
     def __call__(self, metric):
         if self.best is None:
-            return False
+            self.best = metric
 
         if self.mode == 'max':
             if metric > self.best + self.min_change:
