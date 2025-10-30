@@ -5,3 +5,4 @@
 data/
 checkpoints/
 output/
+__pycache__/

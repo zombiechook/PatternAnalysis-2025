@@ -302,7 +302,7 @@ def main():
             save_checkpoint(model, optimiser, epoch, best_dice, train_losses, val_losses, train_dices, val_dices, os.path.join(args.output, f"checkpoint_epoch_{epoch+1}.pth"))
 
     # Produce a plot of the losses and dice coefficients across all epochs
-    utils.plot_curves(train_losses, val_losses, train_dices, val_dices, os.path.join(args.output, 'training_curves.png'))
+    utils.plot_curves(train_losses, val_losses, train_dices, val_dices, os.path.join(args.output, 'images/training_curves.png'))
 
 
 if __name__ == "__main__":
