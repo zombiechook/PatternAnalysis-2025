@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 
 def plot_curves(train_losses, val_losses, train_dice, val_dice, save_path):
     epochs = range(1, len(train_losses) + 1)
-    print(train_losses, val_losses, train_dice, val_dice)
 
     figure, (axis1, axis2) = plt.subplots(1, 2, figsize=(15, 5))
 
