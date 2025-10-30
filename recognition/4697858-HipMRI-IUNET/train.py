@@ -42,12 +42,16 @@ class EarlyStop:
         return self.stop
 
 
-def save_checkpoint(model, optimiser, epoch, best_dice, filepath):
+def save_checkpoint(model, optimiser, epoch, best_dice, train_losses, val_losses, train_dices, val_dices, filepath):
     checkpoint = {
         "epoch": epoch,
         "model_state": model.state_dict(),
         "optimiser_state": optimiser.state_dict(),
         "best_dice": best_dice,
+        "train_losses": train_losses,
+        "val_losses": val_losses,
+        "train_dices": train_dices,
+        "val_dices": val_dices
     }
     torch.save(checkpoint, filepath)
     print(f"Checkpoint saved to {filepath}")
@@ -59,8 +63,12 @@ def load_checkpoint(model, optimiser, filepath):
     optimiser.load_state_dict(checkpoint["optimiser_state"])
     epoch = checkpoint["epoch"]
     best_dice = checkpoint["best_dice"]
+    train_losses = checkpoint["train_losses"]
+    val_losses = checkpoint["val_losses"]
+    train_dices = checkpoint["train_dices"]
+    val_dices = checkpoint["val_dices"]
     print(f"Checkpoint loaded from {filepath}")
-    return epoch, best_dice
+    return epoch, best_dice, train_losses, val_losses, train_dices, val_dices
 
 
 def train_one_epoch(model, loader, optimiser, criterion, device):
@@ -180,7 +188,7 @@ def main():
 
     start_epoch = 0
     if args.resume:
-        start_epoch, best_dice = load_checkpoint(model, optimiser, args.resume_checkpoint)
+        start_epoch, best_dice, train_losses, val_losses, train_dices, val_dices = load_checkpoint(model, optimiser, args.resume_checkpoint)
         print(best_dice)
         start_epoch += 1
 
@@ -230,9 +238,8 @@ def main():
             break
 
         if (epoch + 1) % args.save_frequency == 0:
-            save_checkpoint(model, optimiser, epoch, best_dice, os.path.join(args.output, f"checkpoint_epoch_{epoch+1}.pth"))
+            save_checkpoint(model, optimiser, epoch, best_dice, train_losses, val_losses, train_dices, val_dices, os.path.join(args.output, f"checkpoint_epoch_{epoch+1}.pth"))
 
-    print(train_losses, val_losses, train_dices, val_dices)
     utils.plot_curves(train_losses, val_losses, train_dices, val_dices, os.path.join(args.output, 'training_curves.png'))
 
 
