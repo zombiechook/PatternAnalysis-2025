@@ -57,7 +57,7 @@ scikit-learn (1.7.2)
 ### Running
 Run the following command
 
-`python train.py [--directory] [--batch_size] [--num_workers] [--target_label] [--epochs] [--dice_weight] [--smooth] [--num_classes] [--output] [--learning_rate] [--weight_decay] [--patience] [--resume] [--save_frequency] [--resume_checkpoint]`
+`python train.py [--directory] [--batch_size] [--num_workers] [--target_label] [--epochs] [--smooth] [--num_classes] [--output] [--learning_rate] [--weight_decay] [--patience] [--resume] [--save_frequency] [--resume_checkpoint]`
 
 The optional parameters are:
 
@@ -66,7 +66,6 @@ The optional parameters are:
 - --num_workers (default: 4): The number of parallel workers assigned
 - --target_label (default: 1): The expected label of the prostate
 - --epochs (default: 100): Maximum number of epochs to train for
-- --dice_weight (default: 0.5): Weighting of the DICE
 - --smooth (default: 1.0): Smoothing factor
 - --num_classes (default: 6): Number of classes within the dataset
 - --output (default: ./output): Directory for output files

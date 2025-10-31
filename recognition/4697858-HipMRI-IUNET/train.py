@@ -200,7 +200,6 @@ def parse_cmd_args():
     args.add_argument("--num_workers", type=int, default=4)
     args.add_argument("--target_label", type=int, default=1)
     args.add_argument("--epochs", type=int, default=100)
-    args.add_argument("--dice_weight", type=float, default=0.5)
     args.add_argument("--smooth", type=float, default=1.0)
     args.add_argument("--num_classes", type=int, default=6)
     args.add_argument("--output", type=str, default="./output")
